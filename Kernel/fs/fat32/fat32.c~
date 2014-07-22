@@ -1,0 +1,78 @@
+/*Copyright 2013-2014 by 2013-2014 by Explorer OS Developer. All rights reserved.
+
+Explorer 0.01 FAT32文件系统支持代码
+File name:Explorer\Kernel\fs\fat32\fat32.c
+2014.7.18 12:06 AM
+*/
+
+#include "..\..\include\fat32.h"
+#include "..\..\include\hdd.h"
+
+struct PBR
+{
+	/*PBR直接提供*/
+	char OEM[8];				/*OEM名称*/
+	char cluster_size;			/*簇包含多少扇区*/
+	short int reserve;			/*保留扇区数量*/
+	char FAT_num;				/*文件分配表数量*/
+	short int root_max_num;		/*根目录最大数量*/
+	int FAT_size;				/*每个文件分配表的扇区数量*/
+	int root_start;				/*根目录起始簇*/
+	/*PBR间接提供*/
+	int FAT_start;
+	/*为了方便，目前阶段将整个FAT加载到内存中，当加入写入文件功能后这个决定将失效*/
+	int *FAT_addr;
+}PBR1;
+
+void inti_FAT32(void)
+{
+	char *point;
+	point = (char *) kmalloc(512);
+	read_disk(LBA_start, (unsigned short int*) point, 1);
+	/*拷贝直接得到的数据*/
+	kmemcpy((point + 0x03), &PBR1.OEM, 8);
+	kmemcpy((point + 0x0d), &PBR1.cluster_size, 1);
+	kmemcpy((point + 0x0e), &PBR1.reserve, 2);
+	kmemcpy((point + 0x10), &PBR1.FAT_num, 1);
+	kmemcpy((point + 0x11), &PBR1.root_max_num, 2);
+	kmemcpy((point + 0x24), &PBR1.FAT_size, 4);
+	kmemcpy((point + 0x2c), &PBR1.root_start, 4);
+	/*算出间接提供的数据*/
+	PBR1.FAT_start = LBA_start + PBR1.reserve;
+	/*加载FAT*/
+	PBR1.FAT_addr = (int *) kmalloc(PBR1.FAT_size * 512);
+	printk("reading the FAT.\n");
+	read_disk(PBR1.FAT_start, (unsigned short int*) PBR1.FAT_addr, PBR1.FAT_size);
+	printk("OEM:%s,Cluster size:%X,reserve:%X,root max number:%X,root start:%X\n", &PBR1.OEM, PBR1.cluster_size, PBR1.reserve, PBR1.root_max_num, PBR1.root_start);
+	printk("FAT32 start in:0x%X\n",PBR1.FAT_start);
+	
+}
+int file_open(char *name, int addr)
+{
+	
+}
+
+unsigned int clu_to_sector(unsigned int clu_num)
+{
+//PBR1.FAT_start
+	//return LBA_start + PBR1.reserve + 
+}
+
+unsigned int get_next_clu(unsigned int clu)
+{
+	int *point, i, value;
+	point = (int *) kmalloc(512);
+	i = ((clu / 128) + PBR1.FAT_start);/*一个FAT扇区512字节，有128个簇表项*/
+	read_disk(i, (unsigned short int*) point, 1);
+	debug(point, 512);
+	io_hlt();
+	value = point[(clu % 128)];
+	kfree(point, 512);
+	return value;
+}
+
+void load_data(int addr, unsigned int clu)
+{
+	
+}
+
